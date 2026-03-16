@@ -13,36 +13,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1 # Качаем только последний коммит для скорости
+          fetch-depth: 1
 
       - name: Install Dependencies and Cross-Compiler
         run: |
           sudo dpkg --add-architecture arm64
-          
-          # Полная очистка и перенастройка источников для исключения 404 ошибок
           sudo rm -rf /etc/apt/sources.list.d/*
           sudo bash -c 'cat <<EOF > /etc/apt/sources.list
-          # Standart AMD64 Repos
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble main restricted universe multiverse
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
-          deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse
-
-          # ARM64 Repos (Ports)
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
           EOF'
-
           sudo apt-get update
-          sudo apt-get install -y \
-            g++-aarch64-linux-gnu \
-            cmake \
-            make \
-            pkg-config \
-            libssl-dev:arm64 \
-            zlib1g-dev:arm64 \
-            libcurl4-openssl-dev:arm64
+          sudo apt-get install -y g++-aarch64-linux-gnu cmake make pkg-config libssl-dev:arm64 zlib1g-dev:arm64 libcurl4-openssl-dev:arm64
+
+      - name: Patch CMakeLists for Linux
+        run: |
+          # Удаляем ASM_MASM и принудительно ограничиваем языки только C и CXX
+          # Это предотвратит поиск CMAKE_RC_COMPILER
+          sed -i 's/LANGUAGES C CXX ASM_MASM/LANGUAGES C CXX/g' CMakeLists.txt
+          # На всякий случай убираем специфичные для MSVC строки, если они есть
+          sed -i '/resource_compile/d' CMakeLists.txt
 
       - name: Configure and Build
         env:
@@ -55,9 +49,7 @@ jobs:
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
             -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_ASM_MASM_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_RC_COMPILER="" 
+            -DCMAKE_BUILD_TYPE=Release
 
           cmake --build build --config Release
 
@@ -65,5 +57,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MinecraftConsoles-linux-arm64
-          # Бинарник после сборки в этом проекте называется 'mcc'
           path: build/mcc
