@@ -18,6 +18,24 @@ jobs:
       - name: Install Dependencies and Cross-Compiler
         run: |
           sudo dpkg --add-architecture arm64
+          
+          # Переписываем sources.list, чтобы разделить amd64 и arm64
+          sudo python3 -c '
+          import re
+          with open("/etc/apt/sources.list", "r") as f:
+              content = f.read()
+          # Добавляем [arch=amd64] ко всем текущим репозиториям
+          content = re.sub(r"^deb (http)", r"deb [arch=amd64] \1", content, flags=re.M)
+          # Добавляем репозитории портов для arm64
+          arm_repos = "\n".join([
+              "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse",
+              "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse",
+              "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse"
+          ])
+          with open("/etc/apt/sources.list", "w") as f:
+              f.write(content + "\n" + arm_repos)
+          '
+          
           sudo apt-get update
           sudo apt-get install -y \
             g++-aarch64-linux-gnu \
