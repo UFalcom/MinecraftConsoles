@@ -1,0 +1,53 @@
+name: Build MinecraftConsoles ARM64
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-arm64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies and Cross-Compiler
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          # Устанавливаем кросс-компилятор
+          sudo apt-get install -y g++-aarch64-linux-gnu cmake make
+          # Устанавливаем зависимости именно для архитектуры arm64
+          sudo apt-get install -y \
+            libssl-dev:arm64 \
+            zlib1g-dev:arm64 \
+            libcurl4-openssl-dev:arm64
+
+      - name: Configure CMake
+        run: |
+          # Создаем toolchain файл прямо на лету для надежности
+          cat <<EOF > toolchain.cmake
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR aarch64)
+          set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+          set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+          EOF
+
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=toolchain.cmake \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MinecraftConsoles-linux-arm64
+          path: build/mcc # Проверь имя файла, обычно это mcc или MinecraftConsoles
