@@ -18,7 +18,7 @@ jobs:
       - name: Install Dependencies and Cross-Compiler
         run: |
           sudo dpkg --add-architecture arm64
-          sudo rm -rf /etc/apt/sources.list.d/*
+          sudo rm -rf /etc/apt/sources.list.d/* || true
           sudo bash -c 'cat <<EOF > /etc/apt/sources.list
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble main restricted universe multiverse
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
@@ -30,31 +30,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++-aarch64-linux-gnu cmake make pkg-config libssl-dev:arm64 zlib1g-dev:arm64 libcurl4-openssl-dev:arm64
 
-      - name: Patch CMakeLists (Brute Force)
+      - name: Patch CMakeLists
         run: |
-          # Выводим старый файл в лог для отладки
-          echo "Original CMakeLists.txt (first 10 lines):"
-          head -n 10 CMakeLists.txt
-          
-          # Жестко меняем строку project, чтобы выкинуть всё лишнее
-          # Ищем строку с project и заменяем её полностью на чистую версию
-          sed -i 's/project(.*)/project(MinecraftConsoles LANGUAGES C CXX)/g' CMakeLists.txt
-          
-          # На всякий случай удаляем упоминания RC и MASM везде в файле
+          # Вырезаем всё лишнее из объявления проекта
+          sed -i 's/project.*/project(MinecraftConsoles LANGUAGES C CXX)/g' CMakeLists.txt
+          # Убираем любые упоминания ресурсов и масма
           sed -i '/ASM_MASM/d' CMakeLists.txt
           sed -i '/RC_COMPILER/d' CMakeLists.txt
           sed -i '/enable_language(RC)/d' CMakeLists.txt
 
-      - name: Configure and Build
+      - name: Configure
         env:
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu/pkgconfig
-        run: |
-          # Добавляем флаг игнорирования ресурсов прямо в команду
-          cmake -B build \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu \
-            -
+        run: cmake -B build -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu -DCMAKE_BUILD_TYPE=Release -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MinecraftConsoles-linux-arm64
+          path: build/mcc
