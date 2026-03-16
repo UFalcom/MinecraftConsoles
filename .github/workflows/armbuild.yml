@@ -15,28 +15,31 @@ jobs:
         with:
           fetch-depth: 1 # Качаем только верхушку, без истории
 
-      - name: Install Dependencies and Cross-Compiler
+     - name: Install Dependencies and Cross-Compiler
         run: |
           sudo dpkg --add-architecture arm64
           
-          # Переписываем sources.list, чтобы разделить amd64 и arm64
-          sudo python3 -c '
-          import re
-          with open("/etc/apt/sources.list", "r") as f:
-              content = f.read()
-          # Добавляем [arch=amd64] ко всем текущим репозиториям
-          content = re.sub(r"^deb (http)", r"deb [arch=amd64] \1", content, flags=re.M)
-          # Добавляем репозитории портов для arm64
-          arm_repos = "\n".join([
-              "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse",
-              "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse",
-              "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse"
-          ])
-          with open("/etc/apt/sources.list", "w") as f:
-              f.write(content + "\n" + arm_repos)
-          '
+          # 1. Очищаем все текущие источники, чтобы не было конфликтов
+          sudo rm -rf /etc/apt/sources.list.d/*
           
-          sudo apt-get update
+          # 2. Создаем чистый конфиг с разделением по архитектурам
+          # Для amd64 используем стандартные зеркала Azure (они быстрее в GA)
+          # Для arm64 используем официальный ports.ubuntu.com
+          sudo bash -c 'cat <<EOF > /etc/apt/sources.list
+          # AMD64 Repos
+          deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble main restricted universe multiverse
+          deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
+          deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
+          deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-security main restricted universe multiverse
+
+          # ARM64 Repos (Ports)
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+          EOF'
+
+          # 3. Обновляемся и ставим пакеты
+          sudo apt-get update -y
           sudo apt-get install -y \
             g++-aarch64-linux-gnu \
             cmake \
