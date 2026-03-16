@@ -1,4 +1,4 @@
-name: Build MinecraftConsoles ARM64 (Final)
+name: Build MinecraftConsoles ARM64
 
 on:
   push:
@@ -13,20 +13,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1 # Качаем только верхушку, без истории
+          fetch-depth: 1 # Качаем только последний коммит для скорости
 
-     - name: Install Dependencies and Cross-Compiler
+      - name: Install Dependencies and Cross-Compiler
         run: |
           sudo dpkg --add-architecture arm64
           
-          # 1. Очищаем все текущие источники, чтобы не было конфликтов
+          # Полная очистка и перенастройка источников для исключения 404 ошибок
           sudo rm -rf /etc/apt/sources.list.d/*
-          
-          # 2. Создаем чистый конфиг с разделением по архитектурам
-          # Для amd64 используем стандартные зеркала Azure (они быстрее в GA)
-          # Для arm64 используем официальный ports.ubuntu.com
           sudo bash -c 'cat <<EOF > /etc/apt/sources.list
-          # AMD64 Repos
+          # Standart AMD64 Repos
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble main restricted universe multiverse
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
           deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
@@ -38,8 +34,7 @@ jobs:
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
           EOF'
 
-          # 3. Обновляемся и ставим пакеты
-          sudo apt-get update -y
+          sudo apt-get update
           sudo apt-get install -y \
             g++-aarch64-linux-gnu \
             cmake \
@@ -49,15 +44,13 @@ jobs:
             zlib1g-dev:arm64 \
             libcurl4-openssl-dev:arm64
 
-      - name: Build
+      - name: Configure and Build
         env:
-          # Магия для того, чтобы pkg-config не запутался в архитектурах
+          # Указываем pkg-config смотреть только в каталоги ARM64
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu/pkgconfig
-          CC: aarch64-linux-gnu-gcc
-          CXX: aarch64-linux-gnu-g++
         run: |
-          # Конфигурируем с явным указанием системы
+          # Настраиваем CMake для кросс-компиляции
           cmake -B build \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -66,12 +59,12 @@ jobs:
             -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu \
             -DCMAKE_BUILD_TYPE=Release
 
-          # Собираем
+          # Запускаем сборку
           cmake --build build --config Release
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: MinecraftConsoles-linux-arm64
-          # В репозитории исполняемый файл называется 'mcc'
+          # Бинарник после сборки в этом проекте называется 'mcc'
           path: build/mcc
