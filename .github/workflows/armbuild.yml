@@ -46,20 +46,19 @@ jobs:
 
       - name: Configure and Build
         env:
-          # Указываем pkg-config смотреть только в каталоги ARM64
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_LIBDIR: /usr/lib/aarch64-linux-gnu/pkgconfig
         run: |
-          # Настраиваем CMake для кросс-компиляции
           cmake -B build \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
             -DCMAKE_FIND_ROOT_PATH=/usr/lib/aarch64-linux-gnu \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_ASM_MASM_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_RC_COMPILER="" 
 
-          # Запускаем сборку
           cmake --build build --config Release
 
       - name: Upload Artifact
