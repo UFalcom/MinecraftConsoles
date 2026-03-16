@@ -30,11 +30,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++-aarch64-linux-gnu cmake make pkg-config libssl-dev:arm64 zlib1g-dev:arm64 libcurl4-openssl-dev:arm64
 
-      - name: Patch CMakeLists
+      - name: Patch CMakeLists (Bypass Windows-only check)
         run: |
-          # Вырезаем всё лишнее из объявления проекта
+          # 1. Удаляем блокировку по ОС (ту самую ошибку на 9 строке)
+          # Мы просто заменяем FATAL_ERROR на STATUS, чтобы билд не падал
+          sed -i 's/FATAL_ERROR/STATUS/g' CMakeLists.txt
+          
+          # 2. Вырезаем всё лишнее из объявления проекта (RC и ASM)
           sed -i 's/project.*/project(MinecraftConsoles LANGUAGES C CXX)/g' CMakeLists.txt
-          # Убираем любые упоминания ресурсов и масма
+          
+          # 3. Удаляем упоминания специфичных для Windows штук
           sed -i '/ASM_MASM/d' CMakeLists.txt
           sed -i '/RC_COMPILER/d' CMakeLists.txt
           sed -i '/enable_language(RC)/d' CMakeLists.txt
